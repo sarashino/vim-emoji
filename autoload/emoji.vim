@@ -22,86 +22,76 @@
 " WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 if exists("g:loaded_vim_emoji")
-  finish
+	finish
 endif
 let g:loaded_vim_emoji = 1
 
 if exists("*strwidth")
-  function! s:strwidth(str)
-    return strwidth(a:str)
-  endfunction
+	function! s:strwidth(str)
+		return strwidth(a:str)
+	endfunction
 else
-  function! s:strwidth(str)
-    return len(split(a:str, '\zs'))
-  endfunction
+	function! s:strwidth(str)
+		return len(split(a:str, '\zs'))
+	endfunction
 endif
 
-" Deprecated
-function! emoji#available()
-  return 1
-endfunction
-
-function! emoji#list()
-  return keys(emoji#data#dict())
-endfunction
-
-function! emoji#for(name, ...)
-  let emoji = get(emoji#data#dict(), tolower(a:name), '')
-  if empty(emoji)
-    return a:0 > 0 ? a:1 : emoji
-  endif
-
-  let echar = type(emoji) == 0 ? nr2char(emoji) :
-        \ join(map(copy(emoji), 'nr2char(v:val)'), '')
-  let pad = get(a:, 2, 1)
-  if pad
-    return echar . repeat(' ', 1 + pad - s:strwidth(echar))
-  else
-    return echar
-  endif
+function! emoji#for(name, default)
+	let emoji = get(emoji#data#dict(), tolower(a:name), '')
+	if empty(emoji)
+		return a:default
+	endif
+	return emoji.emoji
 endfunction
 
 let s:max_score = 1000
-function! s:score(haystack, needle)
-  let idx = stridx(a:haystack, a:needle)
-  if idx < 0  | return idx             | endif
-  if idx == 0 | return s:max_score * 2 | endif
-  let bonus = (a:haystack[idx - 1] =~ '[^0-9a-zA-Z]') * s:max_score
-  return bonus + s:max_score - idx
+function! s:score(haystack, tags, needle)
+	function! ScoreCalc(word, needle)
+		let idx = stridx(a:word, a:needle)
+		if idx < 0
+			return idx
+		endif
+		return s:max_score - idx - (len(a:word) - len(a:needle))
+	endfunction
+	let haystackScore = ScoreCalc(a:haystack, a:needle)
+	let tagsScores = map(a:tags,'ScoreCalc(v:val, a:needle)')
+	delfunction ScoreCalc
+	return max(add(tagsScores,haystackScore))
 endfunction
 
 function! emoji#complete(findstart, base)
-  if !exists('s:emojis')
-    let s:emojis = map(sort(keys(emoji#data#dict())),
-          \ emoji#available() ?
-          \ '{ "word": ":".v:val.":", "kind": emoji#for(v:val) }' :
-          \ '{ "word": ":".v:val.":" }')
-  endif
+	if !exists('l:dict')
+		let l:dict = emoji#data#dict()
+	endif
+	if !exists('s:emojis')
+		let s:emojis = map(sort(keys(l:dict)),
+					\ '{ "word": ":".v:val.":", "kind": get(l:dict, v:val) }')
+	endif
 
-  if a:findstart
-    return match(getline('.')[0:col('.') - 1], ':[^: \t]*$')
-  elseif empty(a:base)
-    return s:emojis
-  else
-    augroup emoji_complete_redraw
-      autocmd!
-      autocmd CursorMoved,CursorMovedI,InsertLeave * redraw!
-            \| augroup emoji_complete_redraw
-            \|   execute 'autocmd!'
-            \| augroup END
-            \| augroup! emoji_complete_redraw
-    augroup END
+	if a:findstart
+		return match(getline('.')[0:col('.') - 1], ':[^: \t]*$')
+	elseif empty(a:base)
+		return map(copy(s:emojis), '{"word": v:val.word, "kind": v:val.kind.emoji}')
+	else
+		augroup emoji_complete_redraw
+			autocmd!
+			autocmd CursorMoved,CursorMovedI,InsertLeave * redraw!
+						\| augroup emoji_complete_redraw
+						\|   execute 'autocmd!'
+						\| augroup END
+						\| augroup! emoji_complete_redraw
+		augroup END
 
-    let matches = filter(map(copy(s:emojis), '[s:score(v:val.word, a:base[1:]), v:val]'), 'v:val[0] >= 0')
-    function! EmojiSort(t1, t2)
-      if a:t1[0] == a:t2[0]
-        return a:t1[1].word <= a:t2[1].word ? -1 : 1
-      endif
-      return a:t1[0] >= a:t2[0] ? -1 : 1
-    endfunction
-    let matches = sort(matches, 'EmojiSort')
-    delfunction EmojiSort
-    return map(matches, 'v:val[1]')
-  endif
+
+		let matches = filter(map(copy(s:emojis), '[s:score(v:val.word, v:val.kind.tags, a:base[1:]), v:val]'), 'v:val[0] >= 0')
+		function! EmojiSort(t1, t2)
+			if a:t1[0] == a:t2[0]
+				return a:t1[1].word <= a:t2[1].word ? -1 : 1
+			endif
+			return a:t1[0] >= a:t2[0] ? -1 : 1
+		endfunction
+		let matches = sort(matches, 'EmojiSort')
+		delfunction EmojiSort
+		return map(matches, '{"word": v:val[1].word, "kind": v:val[1].kind.emoji}')
+	endif
 endfunction
-

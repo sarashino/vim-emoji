@@ -1,28 +1,16 @@
 # Test cases for vim-emoji
 
-Execute (emoji#for(NAME)):
-  AssertEqual '🐶', emoji#for('dog')
 
-Execute (emoji#for(NAME) - case-insensitivity):
-  AssertEqual '🐶', emoji#for('DOG')
-  AssertEqual '🐶', emoji#for('Dog')
+Execute (emoji#for(NAME, DEFAULT) - case-insensitivity):
+  AssertEqual '🐶', emoji#for('DOG', '')
+  AssertEqual '🐶', emoji#for('Dog', '')
 
-Execute (emoji#for(NAME, DEFAULT = '')):
+Execute (emoji#for(NAME, DEFAULT)):
   AssertEqual '',   emoji#for('snoop dogg')
   AssertEqual '💩 ', emoji#for('snoop dogg', '💩 ')
 
-Execute (emoji#for(NAME, DEFAULT, PAD = 1)):
-  AssertEqual '🐱', emoji#for('cat', '🐶 ')
-  AssertEqual '🐱', emoji#for('cat', '🐶 ', 1)
-  AssertEqual '🐱',  emoji#for('cat', '🐶 ', 0)
-
-Execute (emoji#list()):
-  AssertEqual 3, type(emoji#list())
-  Assert index(emoji#list(), 'dog') >= 0
-  AssertEqual -1, index(emoji#list(), 'snoop dogg')
-
 Do (Insert emoji using <C-R>=):
-  iHi, \<C-R>=emoji#for('dog')\<Enter>!\<Esc>
+  iHi, \<C-R>=emoji#for('dog', '')\<Enter>!\<Esc>
   yy2p
 
 Expect (3 dogs):
