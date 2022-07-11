@@ -50,13 +50,16 @@ function! s:score(haystack, tags, needle)
 		let idx = stridx(a:word, a:needle)
 		if idx < 0
 			return idx
+		elseif idx == 0
+			return s:max_score - (len(a:word) - len(a:needle))
 		endif
 		return s:max_score - idx - (len(a:word) - len(a:needle))
 	endfunction
 	let haystackScore = ScoreCalc(a:haystack, a:needle)
-	let tagsScores = map(a:tags,'ScoreCalc(v:val, a:needle)')
+	let tagsScores = map(copy(a:tags),'ScoreCalc(v:val, a:needle) - 8')
+
 	delfunction ScoreCalc
-	return max(add(tagsScores,haystackScore))
+	return max(add(copy(tagsScores),haystackScore))
 endfunction
 
 function! emoji#complete(findstart, base)
@@ -64,7 +67,7 @@ function! emoji#complete(findstart, base)
 		let l:dict = emoji#data#dict()
 	endif
 	if !exists('s:emojis')
-		let s:emojis = map(sort(keys(l:dict)),
+		let s:emojis = map(sort(keys(copy(l:dict))),
 					\ '{ "word": ":".v:val.":", "kind": get(l:dict, v:val) }')
 	endif
 
@@ -92,6 +95,6 @@ function! emoji#complete(findstart, base)
 		endfunction
 		let matches = sort(matches, 'EmojiSort')
 		delfunction EmojiSort
-		return map(matches, '{"word": v:val[1].word, "kind": v:val[1].kind.emoji}')
+		return map(copy(matches), '{"word": v:val[1].word, "kind": v:val[1].kind.emoji}')
 	endif
 endfunction
