@@ -62,6 +62,9 @@ function! s:score(haystack, tags, needle)
 	return max(add(copy(tagsScores),haystackScore))
 endfunction
 
+if !exists("g:return_emoji")
+	let g:return_emoji=0
+endif
 function! emoji#complete(findstart, base)
 	if !exists('l:dict')
 		let l:dict = emoji#data#dict()
@@ -74,7 +77,11 @@ function! emoji#complete(findstart, base)
 	if a:findstart
 		return match(getline('.')[0:col('.') - 1], ':[^: \t]*$')
 	elseif empty(a:base)
-		return map(copy(s:emojis), '{"word": v:val.word, "kind": v:val.kind.emoji}')
+		if(g:return_emoji)
+			return map(copy(s:emojis), '{"word": v:val.kind.emoji, "kind": v:val.word}')
+		else
+			return map(copy(s:emojis), '{"word": v:val.word, "kind": v:val.kind.emoji}')
+		endif
 	else
 		augroup emoji_complete_redraw
 			autocmd!
@@ -95,6 +102,11 @@ function! emoji#complete(findstart, base)
 		endfunction
 		let matches = sort(matches, 'EmojiSort')
 		delfunction EmojiSort
-		return map(copy(matches), '{"word": v:val[1].word, "kind": v:val[1].kind.emoji}')
+		if(g:return_emoji)
+			return map(copy(matches), '{"word": v:val[1].kind.emoji, "kind": v:val[1].word}')
+		else
+			return map(copy(matches), '{"word": v:val[1].word, "kind": v:val[1].kind.emoji}')
+		endif
 	endif
 endfunction
+
